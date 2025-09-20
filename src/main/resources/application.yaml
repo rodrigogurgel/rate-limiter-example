@@ -18,6 +18,17 @@ ratelimit:
     enabled: true
   excludePatterns:
     - /actuator/health
+    - /actuator
   allow-on-error: false
 
-
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name:app}

@@ -1,4 +1,4 @@
-package br.com.rodrigogurgel.ratelimiterexample.domain.vo
+package br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.request
 
 data class RateLimitRequest(
     val allowOnError: Boolean,

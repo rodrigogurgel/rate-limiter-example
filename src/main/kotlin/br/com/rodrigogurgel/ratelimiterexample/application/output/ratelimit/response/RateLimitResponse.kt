@@ -1,6 +1,8 @@
-package br.com.rodrigogurgel.ratelimiterexample.domain.vo
+package br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.response
 
-class RateLimitResult {
+import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.request.RateLimitRequest
+
+class RateLimitResponse {
     val allowed: Boolean
     val account: Result
     val product: Result
@@ -27,7 +29,7 @@ class RateLimitResult {
         const val PRODUCT_REMAINING_VALUE_POSITION = 3
         const val PRODUCT_TTL_MS_VALUE_POSITION = 4
 
-        fun defaultAllowed(rateLimitRequest: RateLimitRequest): RateLimitResult {
+        fun defaultAllowed(rateLimitRequest: RateLimitRequest): RateLimitResponse {
             val resultDefaultValues = with(rateLimitRequest) {
                 listOf(
                     1,
@@ -37,10 +39,10 @@ class RateLimitResult {
                     product.windowMs,
                 )
             }
-            return RateLimitResult(resultDefaultValues)
+            return RateLimitResponse(resultDefaultValues)
         }
 
-        fun defaultDisallowed(rateLimitRequest: RateLimitRequest): RateLimitResult {
+        fun defaultDisallowed(rateLimitRequest: RateLimitRequest): RateLimitResponse {
             val resultDefaultValues = with(rateLimitRequest) {
                 listOf(
                     0,
@@ -50,7 +52,7 @@ class RateLimitResult {
                     product.windowMs,
                 )
             }
-            return RateLimitResult(resultDefaultValues)
+            return RateLimitResponse(resultDefaultValues)
         }
     }
 
