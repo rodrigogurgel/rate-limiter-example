@@ -6,15 +6,15 @@ const URL       = __ENV.URL       || 'http://localhost:8080/hello';
 const ACC_PREFIX= __ENV.ACCOUNT   || 'account-';
 const PROD_PREFIX=__ENV.PRODUCT   || 'product-';
 
-const RATE      = Number(__ENV.RATE || '3000');     // req/s
+const RATE      = Number(__ENV.RATE || '1500');     // req/s
 const DURATION  = __ENV.DURATION || '5m';
 const LAT_P99   = Number(__ENV.LAT_P99 || '0.25');
 
 const PRE_VUS   = Number(__ENV.PRE_VUS || Math.ceil(RATE * LAT_P99 * 3));
 const MAX_VUS   = Number(__ENV.MAX_VUS || Math.max(200, PRE_VUS * 5));
 
-const NUM_ACCOUNTS = Number(__ENV.NUM_ACCOUNTS || '50');
-const NUM_PRODUCTS = Number(__ENV.NUM_PRODUCTS || '50');
+const NUM_ACCOUNTS = Number(__ENV.NUM_ACCOUNTS || '5');
+const NUM_PRODUCTS = Number(__ENV.NUM_PRODUCTS || '5');
 
 const DIST = (__ENV.DIST || 'random').toLowerCase();
 

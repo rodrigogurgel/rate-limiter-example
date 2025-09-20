@@ -21,8 +21,7 @@ class ReactiveRateLimitingFilter(
     private val props: RateLimitProperties,
     private val rateLimiterDatastoreOutputPort: RateLimiterDatastoreOutputPort,
     private val rateLimiterDatastoreMetrics: RateLimitMetrics,
-    private val rateLimitMetrics: RateLimitMetrics,
-    limitMetrics: RateLimitMetrics
+    private val rateLimitMetrics: RateLimitMetrics
 ) : WebFilter {
 
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
@@ -67,12 +66,9 @@ class ReactiveRateLimitingFilter(
                 h.add("X-RateLimit-Product-Remaining", res.product.remaining.toString())
                 h.add("X-RateLimit-Product-Reset", res.product.ttlMs.toString())
 
-                rateLimiterDatastoreMetrics.recordHit(rateLimiterAccountKey, rateLimiterProductKey, res.allowed)
-                rateLimitMetrics.recordLatency(
-                    rateLimiterAccountKey,
-                    rateLimiterProductKey,
-                    duration.inWholeMilliseconds
-                )
+                rateLimiterDatastoreMetrics.recordAccountHit(rateLimiterAccountKey, res.allowed)
+                rateLimiterDatastoreMetrics.recordProductHit(rateLimiterProductKey, res.allowed)
+                rateLimitMetrics.recordLatency(duration.inWholeMilliseconds)
 
                 if (!res.allowed) {
                     exchange.response.statusCode = HttpStatus.TOO_MANY_REQUESTS
