@@ -9,12 +9,12 @@ spring:
 
 ratelimit:
   account:
-    limit: 3
-    windowMs: 60000
+    limit: 60
+    windowMs: 1000
     enabled: true
   product:
-    limit: 6
-    windowMs: 60000
+    limit: 60
+    windowMs: 1000
     enabled: true
   excludePatterns:
     - /actuator/health

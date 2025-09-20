@@ -3,7 +3,6 @@ package br.com.rodrigogurgel.ratelimiterexample.framework.filter
 import br.com.rodrigogurgel.ratelimiterexample.domain.vo.RateLimitRequest
 import br.com.rodrigogurgel.ratelimiterexample.framework.adapter.output.datastore.redis.RateLimiterDatastoreOutputPort
 import br.com.rodrigogurgel.ratelimiterexample.framework.config.redis.properties.RateLimitProperties
-import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.http.server.reactive.ServerHttpRequest
@@ -13,7 +12,6 @@ import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
-import kotlin.math.ceil
 
 @Component
 @Order(5)
