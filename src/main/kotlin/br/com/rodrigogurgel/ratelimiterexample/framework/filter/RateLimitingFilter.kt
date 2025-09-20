@@ -1,5 +1,6 @@
 package br.com.rodrigogurgel.ratelimiterexample.framework.filter
 
+import br.com.rodrigogurgel.ratelimiterexample.domain.vo.RateLimitRequest
 import br.com.rodrigogurgel.ratelimiterexample.framework.adapter.output.datastore.redis.RateLimiterDatastoreOutputPort
 import br.com.rodrigogurgel.ratelimiterexample.framework.config.redis.properties.RateLimitProperties
 import org.slf4j.LoggerFactory
@@ -27,35 +28,60 @@ class ReactiveRateLimitingFilter(
             return chain.filter(exchange)
         }
 
-        val key = buildKey(request)
+        val rateLimiterAccountKey = buildKey(accountKey(request), "account", request)
+        val rateLimiterProductKey = buildKey(productKey(request), "product", request)
 
         return Mono.fromCallable {
-            rateLimiterDatastoreOutputPort.tryConsume(key, props.limit, props.windowMs)
+            rateLimiterDatastoreOutputPort.tryConsume(
+                RateLimitRequest(
+                    allowOnError = props.allowOnError,
+                    account = RateLimitRequest.Params(
+                        enabled = props.account.enabled,
+                        key = rateLimiterAccountKey,
+                        capacity = props.account.limit.toInt(),
+                        windowMs = props.account.windowMs.toInt(),
+                    ),
+                    product = RateLimitRequest.Params(
+                        enabled = props.product.enabled,
+                        key = rateLimiterProductKey,
+                        capacity = props.product.limit.toInt(),
+                        windowMs = props.product.windowMs.toInt(),
+                    ),
+                )
+            )
         }.subscribeOn(Schedulers.boundedElastic())
             .flatMap { res ->
                 val h = exchange.response.headers
-                h.add("X-RateLimit-Key", key)
-                h.add("X-RateLimit-Limit", props.limit.toString())
-                h.add("X-RateLimit-Remaining", res.remaining.toString())
-                h.add("X-RateLimit-Reset", res.ttlMs.toString())
+                h.add("X-RateLimit-Account-Key", rateLimiterAccountKey)
+                h.add("X-RateLimit-Account-Limit", props.account.limit.toString())
+                h.add("X-RateLimit-Account-Remaining", res.account.remaining.toString())
+                h.add("X-RateLimit-Account-Reset", res.product.ttlMs.toString())
+
+                h.add("X-RateLimit-Product-Key", rateLimiterProductKey)
+                h.add("X-RateLimit-Product-Limit", props.product.limit.toString())
+                h.add("X-RateLimit-Product-Remaining", res.product.remaining.toString())
+                h.add("X-RateLimit-Product-Reset", res.product.ttlMs.toString())
 
                 if (!res.allowed) {
                     exchange.response.statusCode = HttpStatus.TOO_MANY_REQUESTS
-                    h.add("Retry-After", ceil(res.ttlMs / 1000.0).toLong().toString())
                     return@flatMap exchange.response.setComplete()
                 }
                 chain.filter(exchange)
             }
     }
 
-    private fun buildKey(req: ServerHttpRequest): String {
-        val subject = req.headers.getFirst("X-Auth-User")
-            ?: req.headers.getFirst("X-Forwarded-For")?.split(",")?.first()?.trim()
-            ?: req.remoteAddress?.address?.hostAddress
-            ?: "anon"
+    fun accountKey(request: ServerHttpRequest): String {
+        return request.headers.getFirst("X-RateLimit-Account") ?: "anon"
+    }
+
+    fun productKey(request: ServerHttpRequest): String {
+        return request.headers.getFirst("X-RateLimit-Product") ?: "anon"
+    }
+
+    private fun buildKey(name: String, type: String, req: ServerHttpRequest): String {
         val method = req.method
         val pathBucket = req.uri.path.replace(Regex("\\d+"), ":id")
-        return "rl:$subject:$method:$pathBucket"
+        return "rl:$type:$name:$method:$pathBucket"
     }
 }
 
