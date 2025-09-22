@@ -11,7 +11,7 @@ class RateLimitPrometheusMetricsDatastore(private val registry: PrometheusMeterR
     override fun recordHit(account: String, product: String, allowed: Boolean) {
         val counter = registry.counter(
             "app_rate_limit_requests_total",
-            Tags.of("account", account, "allowed", if (allowed) "true" else "false")
+            Tags.of("account", account, "product", product, "allowed", if (allowed) "true" else "false")
         )
         counter.increment()
     }
