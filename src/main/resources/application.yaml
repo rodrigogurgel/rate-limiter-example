@@ -1,13 +1,15 @@
 spring:
   application:
     name: rate-limiter-example
+  profiles:
+    active: dev
   data:
     redis:
       host: localhost
       port: 6379
       timeout: 60000
 
-ratelimit:
+rate-limiter:
   account:
     limit: 60
     windowMs: 1000
@@ -28,7 +30,10 @@ management:
         include: health,info,prometheus
   endpoint:
     prometheus:
-      enabled: true
+      access: unrestricted
   metrics:
     tags:
       application: ${spring.application.name:app}
+
+logging:
+  style: STASH

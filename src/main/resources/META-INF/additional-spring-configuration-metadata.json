@@ -1,0 +1,24 @@
+{
+  "properties": [
+    {
+      "name": "logging.style",
+      "type": "java.lang.String",
+      "description": "Define o estilo de logging. Pode ser STASH ou CONSOLE."
+    }
+  ],
+  "hints": [
+    {
+      "name": "logging.style",
+      "values": [
+        {
+          "value": "STASH",
+          "description": "Envia os logs para o STASH."
+        },
+        {
+          "value": "CONSOLE",
+          "description": "Exibe os logs no console."
+        }
+      ]
+    }
+  ]
+}

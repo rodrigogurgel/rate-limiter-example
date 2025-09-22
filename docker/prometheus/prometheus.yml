@@ -1,5 +1,5 @@
 global:
-  scrape_interval: 1s
+  scrape_interval: 15s
   evaluation_interval: 1s
 
 scrape_configs:
@@ -7,24 +7,8 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'redis_exporter'
-    static_configs:
-      - targets: ['redis-exporter:9121']
-
   # sua app Kotlin (ex.: /actuator/prometheus em :8080)
   - job_name: 'kotlin_app'
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ['host.docker.internal:8080']  # app fora do container
-
-
-remote_write:
-  - url: http://clickhouse:9363/write
-    basic_auth:
-      username: admin
-      password: admin
-remote_read:
-  - url: http://clickhouse:9363/read
-    basic_auth:
-      username: admin
-      password: admin

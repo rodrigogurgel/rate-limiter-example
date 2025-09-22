@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration scan="true">
+
+    <!-- ===== Propriedades comuns ===== -->
+    <springProperty scope="context" name="APP_NAME"    source="spring.application.name"/>
+    <springProperty scope="context" name="ENVIRONMENT" source="spring.profiles.active"/>
+
+    <property name="HOST"      value="${HOSTNAME:-local}"/>
+    <property name="LOG_PATH"  value="${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}}"/>
+    <property name="LOG_FILE"  value="${LOG_FILE:-${LOG_PATH}/spring.log}"/>
+
+    <!-- ===== Console JSON (STASH) ===== -->
+    <appender name="STASH" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeContext>false</includeContext>
+            <timeZone>America/Sao_Paulo</timeZone>
+            <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</timestampPattern>
+
+            <customFields>{
+                "hostname": "${HOST}",
+                "app_name": "${APP_NAME}",
+                "environment": "${ENVIRONMENT:-local}"
+                }</customFields>
+
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <message>message</message>
+                <level>level</level>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+                <thread>[ignore]</thread>
+                <logger>class</logger>
+            </fieldNames>
+
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                <maxLength>2048</maxLength>
+                <shortenedClassNameLength>20</shortenedClassNameLength>
+                <rootCauseFirst>true</rootCauseFirst>
+                <inlineHash>true</inlineHash>
+            </throwableConverter>
+        </encoder>
+    </appender>
+
+    <!-- ===== File JSON (FILESTASH) ===== -->
+    <appender name="FILESTASH" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeContext>false</includeContext>
+            <timeZone>America/Sao_Paulo</timeZone>
+            <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</timestampPattern>
+
+            <customFields>{
+                "hostname": "${HOST}",
+                "app_name": "${APP_NAME}",
+                "environment": "${ENVIRONMENT:-local}"
+                }</customFields>
+
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <message>message</message>
+                <level>level</level>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+                <thread>[ignore]</thread>
+                <logger>class</logger>
+            </fieldNames>
+
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                <maxLength>2048</maxLength>
+                <shortenedClassNameLength>20</shortenedClassNameLength>
+                <rootCauseFirst>true</rootCauseFirst>
+                <inlineHash>true</inlineHash>
+            </throwableConverter>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>${LOG_FILE_MAX_SIZE:-512MB}</maxFileSize>
+            <maxHistory>${LOG_FILE_MAX_HISTORY:-5}</maxHistory>
+            <totalSizeCap>${LOG_TOTAL_SIZE_CAP:-1GB}</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ===== Splunk HEC (Direto) =====
+         Requer a dependência:
+         implementation("com.splunk.logging:splunk-library-javalogging:1.11.8")
+    -->
+    <appender name="SPLUNK" class="com.splunk.logging.HttpEventCollectorLogbackAppender">
+        <index>${SPLUNK_INDEX:-main}</index>
+        <url>${SPLUNK_HEC_URL:-https://localhost:8088}</url>
+
+        <token>${SPLUNK_HEC_TOKEN:-00000000-0000-0000-0000-000000000000}</token>
+
+        <disableCertificateValidation>${SPLUNK_HEC_INSECURE:-true}</disableCertificateValidation>
+
+        <index>${SPLUNK_INDEX:-main}</index>
+        <sourcetype>${SPLUNK_SOURCETYPE:-spring-boot}</sourcetype>
+        <source>${SPLUNK_SOURCE:-catalog-service}</source>
+        <host>${HOST}</host>
+
+        <batch_size_count>1</batch_size_count>
+        <includeMdc>true</includeMdc>
+
+        <layout class="net.logstash.logback.layout.LogstashLayout">
+            <jsonFormatter class="net.logstash.logback.encoder.org.apache.commons.lang3.text.StrBuilderJsonFormatter"/>
+            <includeContext>false</includeContext>
+            <timeZone>America/Sao_Paulo</timeZone>
+            <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</timestampPattern>
+
+            <customFields>{
+                "hostname": "${HOST}",
+                "app_name": "${APP_NAME}",
+                "environment": "${ENVIRONMENT:-local}"
+                }</customFields>
+
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <message>message</message>
+                <level>level</level>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+                <thread>[ignore]</thread>
+                <logger>class</logger>
+            </fieldNames>
+
+            <mdc>
+                <include key="correlation_id"/>
+            </mdc>
+
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                <maxLength>2048</maxLength>
+                <shortenedClassNameLength>20</shortenedClassNameLength>
+                <rootCauseFirst>true</rootCauseFirst>
+                <inlineHash>true</inlineHash>
+            </throwableConverter>
+        </layout>
+    </appender>
+
+    <!-- ===== Async wrappers ===== -->
+    <appender name="ASYNC_STASH" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="STASH"/>
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>1000</queueSize>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <appender name="ASYNC_FILESTASH" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILESTASH"/>
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>1000</queueSize>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <appender name="ASYNC_SPLUNK" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="SPLUNK"/>
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>20000</queueSize>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <!-- ===== Perfis ===== -->
+
+    <springProfile name="local | default">
+        <root level="${logging.level.root:-INFO}">
+            <appender-ref ref="ASYNC_STASH"/>
+            <!-- Habilite se quiser já enviar para o Splunk no local -->
+            <!-- <appender-ref ref="ASYNC_SPLUNK"/> -->
+        </root>
+
+        <logger name="br.com.rodrigogurgel" level="${logging.level.br.com.rodrigogurgel:-INFO}" additivity="false">
+            <appender-ref ref="ASYNC_STASH"/>
+            <!-- <appender-ref ref="ASYNC_SPLUNK"/> -->
+        </logger>
+    </springProfile>
+
+    <springProfile name="dev | hom | prod">
+        <root level="${logging.level.root:-INFO}">
+            <appender-ref ref="ASYNC_STASH"/>
+            <appender-ref ref="ASYNC_FILESTASH"/>
+            <appender-ref ref="ASYNC_SPLUNK"/>
+        </root>
+
+        <logger name="br.com.rodrigogurgel" level="${logging.level.br.com.rodrigogurgel:-INFO}" additivity="false">
+            <appender-ref ref="ASYNC_STASH"/>
+            <appender-ref ref="ASYNC_FILESTASH"/>
+            <appender-ref ref="ASYNC_SPLUNK"/>
+        </logger>
+    </springProfile>
+
+</configuration>

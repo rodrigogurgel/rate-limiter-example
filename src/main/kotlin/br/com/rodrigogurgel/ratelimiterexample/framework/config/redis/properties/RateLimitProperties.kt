@@ -2,7 +2,7 @@ package br.com.rodrigogurgel.ratelimiterexample.framework.config.redis.propertie
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 
-@ConfigurationProperties(prefix = "ratelimit")
+@ConfigurationProperties(prefix = "rate-limiter")
 data class RateLimitProperties(
     val allowOnError: Boolean,
     val account: Params,

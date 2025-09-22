@@ -1,8 +1,7 @@
-package br.com.rodrigogurgel.ratelimiterexample.framework.filter
+package br.com.rodrigogurgel.ratelimiterexample.framework.adapter.input.rest.filter
 
-import br.com.rodrigogurgel.ratelimiterexample.application.output.metrics.RateLimitMetrics
 import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.request.RateLimitRequest
-import br.com.rodrigogurgel.ratelimiterexample.framework.adapter.output.datastore.redis.RateLimiterDatastoreOutputPort
+import br.com.rodrigogurgel.ratelimiterexample.framework.adapter.output.datastore.redis.RateLimiterPrometheusDatastoreOutputPort
 import br.com.rodrigogurgel.ratelimiterexample.framework.config.redis.properties.RateLimitProperties
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
@@ -13,15 +12,12 @@ import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
-import kotlin.time.measureTimedValue
 
 @Component
 @Order(5)
 class ReactiveRateLimitingFilter(
     private val props: RateLimitProperties,
-    private val rateLimiterDatastoreOutputPort: RateLimiterDatastoreOutputPort,
-    private val rateLimiterDatastoreMetrics: RateLimitMetrics,
-    private val rateLimitMetrics: RateLimitMetrics
+    private val rateLimiterDatastoreOutputPort: RateLimiterPrometheusDatastoreOutputPort
 ) : WebFilter {
 
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
@@ -34,8 +30,7 @@ class ReactiveRateLimitingFilter(
         val rateLimiterProductKey = buildKey(productKey(request), "product", request)
 
         return Mono.fromCallable {
-            measureTimedValue {
-                rateLimiterDatastoreOutputPort.tryConsume(
+            rateLimiterDatastoreOutputPort.tryConsume(
                     RateLimitRequest(
                         allowOnError = props.allowOnError,
                         account = RateLimitRequest.Params(
@@ -52,25 +47,20 @@ class ReactiveRateLimitingFilter(
                         ),
                     )
                 )
-            }
         }.subscribeOn(Schedulers.boundedElastic())
-            .flatMap { (res, duration) ->
+            .flatMap { rateLimitResponse ->
                 val h = exchange.response.headers
                 h.add("X-RateLimit-Account-Key", rateLimiterAccountKey)
                 h.add("X-RateLimit-Account-Limit", props.account.limit.toString())
-                h.add("X-RateLimit-Account-Remaining", res.account.remaining.toString())
-                h.add("X-RateLimit-Account-Reset", res.product.ttlMs.toString())
+                h.add("X-RateLimit-Account-Remaining", rateLimitResponse.account.remaining.toString())
+                h.add("X-RateLimit-Account-Reset", rateLimitResponse.product.ttlMs.toString())
 
                 h.add("X-RateLimit-Product-Key", rateLimiterProductKey)
                 h.add("X-RateLimit-Product-Limit", props.product.limit.toString())
-                h.add("X-RateLimit-Product-Remaining", res.product.remaining.toString())
-                h.add("X-RateLimit-Product-Reset", res.product.ttlMs.toString())
+                h.add("X-RateLimit-Product-Remaining", rateLimitResponse.product.remaining.toString())
+                h.add("X-RateLimit-Product-Reset", rateLimitResponse.product.ttlMs.toString())
 
-                rateLimiterDatastoreMetrics.recordAccountHit(rateLimiterAccountKey, res.allowed)
-                rateLimiterDatastoreMetrics.recordProductHit(rateLimiterProductKey, res.allowed)
-                rateLimitMetrics.recordLatency(duration.inWholeMilliseconds)
-
-                if (!res.allowed) {
+                if (!rateLimitResponse.allowed) {
                     exchange.response.statusCode = HttpStatus.TOO_MANY_REQUESTS
                     return@flatMap exchange.response.setComplete()
                 }

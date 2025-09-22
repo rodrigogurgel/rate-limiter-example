@@ -4,11 +4,13 @@ services:
     container_name: redis
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "6379:6379"                      # se não precisar expor pra fora do host, remova esta linha
+      - "9121:9121"
     volumes:
       - redis-data:/data
     networks:
-      - redis-net
+      backend:
+        aliases: [redis]
 
   redisinsight:
     image: redis/redisinsight:latest
@@ -16,33 +18,39 @@ services:
     environment:
       - RI_ACCEPT_TERMS_AND_CONDITIONS=yes
     ports:
-      - "5540:5540"
+      - "127.0.0.1:5540:5540"            # bind apenas em localhost por segurança
     depends_on:
       - redis
+    volumes:
+      - redisinsight-data:/data          # persistir workspaces/conexões do RedisInsight
     networks:
-      - redis-net
+      backend:
+        aliases: [redisinsight]
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports:
-      - "9090:9090"
     command:
       - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus  # caminho do volume de dados
+    ports:
+      - "127.0.0.1:9090:9090"            # só local
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus      # persistir TSDB/WAL
     networks:
-      - redis-net
+      monitoring:
+        aliases: [prometheus]
 
   grafana:
     image: grafana/grafana-oss:latest
     container_name: grafana
-    ports:
-      - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=changeme123!
       - GF_USERS_DEFAULT_THEME=dark
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    ports:
+      - "127.0.0.1:3000:3000"            # só local
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
@@ -50,39 +58,44 @@ services:
     depends_on:
       - prometheus
     networks:
-      - redis-net
+      monitoring:
+        aliases: [grafana]
 
-  clickhouse:
-    image: clickhouse/clickhouse-server:latest
-    container_name: clickhouse-server
+  splunk:
+    image: splunk/splunk:latest
+    container_name: splunk
     ports:
-      - "8123:8123"
-      - "9000:9000"
-      - "9363:9363"
-    volumes:
-      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
-      - ./clickhouse/config/zz-http-prometheus.xml:/etc/clickhouse-server/config.d/zz-http-prometheus.xml:ro
+      - "8000:8000"   # UI web
+      - "8088:8088"   # HEC
+      - "8089:8089"   # Management API (opcional)
+      - "9997:9997"   # Receiver p/ forwarders (opcional)
     environment:
-      - CLICKHOUSE_USER=admin
-      - CLICKHOUSE_PASSWORD=admin
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
-    deploy:
-      resources:
-        limits:
-          memory: 8G
-        reservations:
-          memory: 4G
+      SPLUNK_START_ARGS: --accept-license
+      SPLUNK_PASSWORD: changeme123!
+      SPLUNK_HEC_TOKEN: 00000000-0000-0000-0000-000000000000
+      SPLUNK_GENERAL_TERMS: --accept-sgt-current-at-splunk-com
+    volumes:
+      - splunk-var:/opt/splunk/var
+      - splunk-etc:/opt/splunk/etc
+    restart: unless-stopped
     networks:
-      - redis-net
+      logging:
+        aliases: [splunk]
 
+# ---------- Volumes persistentes ----------
 volumes:
   redis-data:
+  redisinsight-data:
+  prometheus-data:
   grafana-storage:
+  splunk-var:
+  splunk-etc:
 
+# ---------- Redes isoladas por domínio ----------
 networks:
-  redis-net:
+  backend:
+    driver: bridge
+  monitoring:
+    driver: bridge
+  logging:
     driver: bridge
