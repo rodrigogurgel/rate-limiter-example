@@ -4,5 +4,6 @@ import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.requ
 import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.response.RateLimitResponse
 
 interface RedisDatastoreOutputPort {
-    fun tryConsume(request: RateLimitRequest): RateLimitResponse
+    fun acquirePermit(request: RateLimitRequest): RateLimitResponse
+    fun compensate(token: RateLimitResponse.CompensationToken)
 }

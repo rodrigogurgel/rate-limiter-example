@@ -10,7 +10,7 @@ class RedisConfig {
     @Bean
     fun rateLimiterScript(): DefaultRedisScript<List<Long>> {
         val script = DefaultRedisScript<List<Long>>()
-        script.setLocation(ClassPathResource("scripts/rate_limiter_try_consume.lua"))
+        script.setLocation(ClassPathResource("scripts/rate_limit_sliding_window.lua"))
         script.resultType = List::class.java as Class<List<Long>>
         return script
     }

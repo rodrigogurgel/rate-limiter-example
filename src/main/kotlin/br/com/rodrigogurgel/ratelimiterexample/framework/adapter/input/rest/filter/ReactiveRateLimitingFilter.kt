@@ -1,7 +1,9 @@
 package br.com.rodrigogurgel.ratelimiterexample.framework.adapter.input.rest.filter
 
+import br.com.rodrigogurgel.ratelimiterexample.application.output.input.ratelimit.RateLimitContext
+import br.com.rodrigogurgel.ratelimiterexample.application.output.input.ratelimit.RateLimitContext.RateLimitRequests
+import br.com.rodrigogurgel.ratelimiterexample.application.output.input.ratelimit.RateLimitValidator
 import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.request.RateLimitRequest
-import br.com.rodrigogurgel.ratelimiterexample.framework.adapter.output.datastore.redis.RateLimiterPrometheusDatastoreOutputPort
 import br.com.rodrigogurgel.ratelimiterexample.framework.config.redis.properties.RateLimitProperties
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
@@ -17,9 +19,8 @@ import reactor.core.scheduler.Schedulers
 @Order(5)
 class ReactiveRateLimitingFilter(
     private val props: RateLimitProperties,
-    private val rateLimiterDatastoreOutputPort: RateLimiterPrometheusDatastoreOutputPort
+    private val rateLimitValidator: RateLimitValidator
 ) : WebFilter {
-
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
         val request = exchange.request
         if (props.excludePatterns.any { request.uri.path.startsWith(it) }) {
@@ -30,37 +31,53 @@ class ReactiveRateLimitingFilter(
         val rateLimiterProductKey = buildKey(productKey(request), "product", request)
 
         return Mono.fromCallable {
-            rateLimiterDatastoreOutputPort.tryConsume(
-                    RateLimitRequest(
-                        allowOnError = props.allowOnError,
-                        account = RateLimitRequest.Params(
-                            enabled = props.account.enabled,
-                            key = rateLimiterAccountKey,
-                            capacity = props.account.limit.toInt(),
-                            windowMs = props.account.windowMs.toInt(),
-                        ),
-                        product = RateLimitRequest.Params(
-                            enabled = props.product.enabled,
-                            key = rateLimiterProductKey,
-                            capacity = props.product.limit.toInt(),
-                            windowMs = props.product.windowMs.toInt(),
-                        ),
-                    )
-                )
+            val rateLimitAccountRequest = RateLimitRequest(
+                allowOnError = props.account.allowOnError,
+                enabled = props.account.enabled,
+                key = rateLimiterAccountKey,
+                capacity = props.account.limit.toInt(),
+                windowMs = props.account.windowMs.toInt(),
+            )
+
+            val rateLimitProductRequest = RateLimitRequest(
+                props.product.allowOnError,
+                enabled = props.product.enabled,
+                key = rateLimiterProductKey,
+                capacity = props.product.limit.toInt(),
+                windowMs = props.product.windowMs.toInt(),
+            )
+
+            val rateLimitContext = RateLimitContext(
+                requests = RateLimitRequests(
+                    account = rateLimitAccountRequest,
+                    product = rateLimitProductRequest,
+                ),
+            )
+            rateLimitValidator.validate(rateLimitContext)
         }.subscribeOn(Schedulers.boundedElastic())
-            .flatMap { rateLimitResponse ->
+            .flatMap { rateLimitContext ->
                 val h = exchange.response.headers
+                val rateLimitAccountResponse = rateLimitContext.responses.account
+                val rateLimitProductResponse = rateLimitContext.responses.product
+
                 h.add("X-RateLimit-Account-Key", rateLimiterAccountKey)
                 h.add("X-RateLimit-Account-Limit", props.account.limit.toString())
-                h.add("X-RateLimit-Account-Remaining", rateLimitResponse.account.remaining.toString())
-                h.add("X-RateLimit-Account-Reset", rateLimitResponse.product.ttlMs.toString())
+
+                rateLimitAccountResponse?.let {
+                    h.add("X-RateLimit-Account-Remaining", rateLimitAccountResponse.remaining.toString())
+                    h.add("X-RateLimit-Account-Reset", rateLimitAccountResponse.retryAfterMs.toString())
+                }
+
 
                 h.add("X-RateLimit-Product-Key", rateLimiterProductKey)
                 h.add("X-RateLimit-Product-Limit", props.product.limit.toString())
-                h.add("X-RateLimit-Product-Remaining", rateLimitResponse.product.remaining.toString())
-                h.add("X-RateLimit-Product-Reset", rateLimitResponse.product.ttlMs.toString())
 
-                if (!rateLimitResponse.allowed) {
+                rateLimitProductResponse?.let {
+                    h.add("X-RateLimit-Product-Remaining", rateLimitProductResponse.remaining.toString())
+                    h.add("X-RateLimit-Product-Reset", rateLimitProductResponse.retryAfterMs.toString())
+                }
+
+                if (!rateLimitContext.responses.isAllowed()) {
                     exchange.response.statusCode = HttpStatus.TOO_MANY_REQUESTS
                     return@flatMap exchange.response.setComplete()
                 }
@@ -78,8 +95,7 @@ class ReactiveRateLimitingFilter(
 
     private fun buildKey(name: String, type: String, req: ServerHttpRequest): String {
         val method = req.method
-        val pathBucket = req.uri.path.replace(Regex("\\d+"), ":id")
-        return "rl:$type:$name:$method:$pathBucket"
+        return "rl:$type:$name"
     }
 }
 

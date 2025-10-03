@@ -1,6 +1,7 @@
 package br.com.rodrigogurgel.ratelimiterexample.application.output.metrics
 
-interface RateLimitMetricsDatastoreOutputPort {
+interface RateLimitMetricsOutputPort {
     fun recordHit(account: String, product: String, allowed: Boolean)
     fun recordLatency(millis: Long)
+    fun recordCompensation(hashKey: String)
 }

@@ -11,17 +11,18 @@ spring:
 
 rate-limiter:
   account:
+    allow-on-error: false
     limit: 60
     windowMs: 1000
     enabled: true
   product:
+    allow-on-error: false
     limit: 60
     windowMs: 1000
     enabled: true
   excludePatterns:
     - /actuator/health
     - /actuator
-  allow-on-error: false
 
 management:
   endpoints:
@@ -37,3 +38,7 @@ management:
 
 logging:
   style: STASH
+  level:
+    br:
+      com:
+        rodrigogurgel: DEBUG
