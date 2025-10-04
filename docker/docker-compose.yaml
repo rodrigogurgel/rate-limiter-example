@@ -1,31 +1,125 @@
 services:
-  redis:
-    image: redis:latest
-    container_name: redis
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"                      # se não precisar expor pra fora do host, remova esta linha
-      - "9121:9121"
+  redis-node-1:
+    image: redis:8.2-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
-      - redis-data:/data
-    networks:
-      backend:
-        aliases: [redis]
+      - ./redis-conf/redis-node-1.conf:/usr/local/etc/redis/redis.conf
+      - redis-data-1:/data
+    ports:
+      - "7001:7001"
+      - "7101:7101"
+    expose:
+      - "7001"
+      - "7101"
+    network_mode: "host"
+
+  redis-node-2:
+    image: redis:8.2-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis-conf/redis-node-2.conf:/usr/local/etc/redis/redis.conf
+      - redis-data-2:/data
+    ports:
+      - "7002:7002"
+      - "7102:7102"
+    expose:
+      - "7002"
+      - "7102"
+    network_mode: "host"
+
+  redis-node-3:
+    image: redis:8.2-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis-conf/redis-node-3.conf:/usr/local/etc/redis/redis.conf
+      - redis-data-3:/data
+    ports:
+      - "7003:7003"
+      - "7103:7103"
+    expose:
+      - "7003"
+      - "7103"
+    network_mode: "host"
+
+  redis-node-4:
+    image: redis:8.2-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis-conf/redis-node-4.conf:/usr/local/etc/redis/redis.conf
+      - redis-data-4:/data
+    ports:
+      - "7004:7004"
+      - "7104:7104"
+    expose:
+      - "6379"
+      - "7004"
+      - "7104"
+    network_mode: "host"
+
+  redis-node-5:
+    image: redis:8.2-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis-conf/redis-node-5.conf:/usr/local/etc/redis/redis.conf
+      - redis-data-5:/data
+    ports:
+      - "7005:7005"
+      - "7105:7105"
+    expose:
+      - "6379"
+      - "7005"
+      - "7105"
+    network_mode: "host"
+
+  redis-node-6:
+    image: redis:8.2-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis-conf/redis-node-6.conf:/usr/local/etc/redis/redis.conf
+      - redis-data-6:/data
+    ports:
+      - "7006:7006"
+      - "7106:7106"
+    expose:
+      - "6379"
+      - "7006"
+      - "7106"
+    network_mode: "host"
+
+  redis-cluster-creator:
+    image: redis:8.2-alpine
+    network_mode: "host"
+    command: >
+      redis-cli --cluster create 
+      host.docker.internal:7001 host.docker.internal:7002 host.docker.internal:7003 
+      host.docker.internal:7004 host.docker.internal:7005 host.docker.internal:7006
+      --cluster-replicas 1 --cluster-yes
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+      - redis-node-4
+      - redis-node-5
+      - redis-node-6
 
   redisinsight:
     image: redis/redisinsight:latest
     container_name: redisinsight
     environment:
       - RI_ACCEPT_TERMS_AND_CONDITIONS=yes
+    network_mode: "host"
     ports:
-      - "127.0.0.1:5540:5540"            # bind apenas em localhost por segurança
+      - "8001:8001"
+      - "5540:5540"
     depends_on:
-      - redis
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+      - redis-node-4
+      - redis-node-5
+      - redis-node-6
     volumes:
-      - redisinsight-data:/data          # persistir workspaces/conexões do RedisInsight
-    networks:
-      backend:
-        aliases: [redisinsight]
+      - redisinsight-data:/data
 
   prometheus:
     image: prom/prometheus:latest
@@ -90,6 +184,12 @@ volumes:
   grafana-storage:
   splunk-var:
   splunk-etc:
+  redis-data-1:
+  redis-data-2:
+  redis-data-3:
+  redis-data-4:
+  redis-data-5:
+  redis-data-6:
 
 # ---------- Redes isoladas por domínio ----------
 networks:
@@ -98,4 +198,6 @@ networks:
   monitoring:
     driver: bridge
   logging:
+    driver: bridge
+  redis-cluster-net:
     driver: bridge
