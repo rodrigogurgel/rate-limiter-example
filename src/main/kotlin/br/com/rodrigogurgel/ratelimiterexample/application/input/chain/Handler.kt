@@ -1,4 +1,4 @@
-package br.com.rodrigogurgel.ratelimiterexample.application.output.chain
+package br.com.rodrigogurgel.ratelimiterexample.application.input.chain
 
 abstract class Handler<C, R> {
     private var next: Handler<C, R>? = null
@@ -13,29 +13,30 @@ abstract class Handler<C, R> {
         data class Stop<C, R>(val result: R) : Step<C, R>()
     }
 
-    protected abstract fun process(ctx: C): Step<C, R>
+    protected abstract fun process(ctx: C, mapper: (C) -> R): Step<C, R>
 
-    fun handle(ctx: C, terminal: (C) -> R): R {
+    fun handle(ctx: C, mapper: (C) -> R): R {
         val undoCommands = ArrayDeque<() -> Unit>()
-        return handleInternal(ctx, terminal, undoCommands)
+        return handleInternal(ctx, mapper, undoCommands)
     }
 
-    private fun handleInternal(ctx: C, terminal: (C) -> R, undoCommands: ArrayDeque<() -> Unit>): R {
-        return when (val step = process(ctx)) {
+    private fun handleInternal(ctx: C, mapper: (C) -> R, undoCommands: ArrayDeque<() -> Unit>): R {
+        return when (val step = process(ctx, mapper)) {
             is Step.Stop -> {
                 while (undoCommands.isNotEmpty()) {
                     runCatching { undoCommands.removeLast().invoke() }
                 }
                 step.result
             }
+
             is Step.Next -> {
                 step.undo?.let { undoCommands.addLast(it) }
 
                 val nextHandler = next
                 if (nextHandler != null) {
-                    nextHandler.handleInternal(step.ctx, terminal, undoCommands)
+                    nextHandler.handleInternal(step.ctx, mapper, undoCommands)
                 } else {
-                    val result = runCatching { terminal(step.ctx) }
+                    val result = runCatching { mapper(step.ctx) }
                     if (result.isFailure) {
                         while (undoCommands.isNotEmpty()) {
                             runCatching { undoCommands.removeLast().invoke() }

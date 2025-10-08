@@ -1,8 +1,8 @@
 package br.com.rodrigogurgel.ratelimiterexample.framework.adapter.input.rest.filter
 
-import br.com.rodrigogurgel.ratelimiterexample.application.output.input.ratelimit.RateLimitContext
-import br.com.rodrigogurgel.ratelimiterexample.application.output.input.ratelimit.RateLimitContext.RateLimitRequests
-import br.com.rodrigogurgel.ratelimiterexample.application.output.input.ratelimit.RateLimitValidator
+import br.com.rodrigogurgel.ratelimiterexample.application.input.ratelimit.RateLimitContext
+import br.com.rodrigogurgel.ratelimiterexample.application.input.ratelimit.RateLimitType
+import br.com.rodrigogurgel.ratelimiterexample.application.input.ratelimit.RateLimitValidator
 import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.request.RateLimitRequest
 import br.com.rodrigogurgel.ratelimiterexample.framework.config.redis.properties.RateLimitProperties
 import org.springframework.core.annotation.Order
@@ -48,17 +48,17 @@ class ReactiveRateLimitingFilter(
             )
 
             val rateLimitContext = RateLimitContext(
-                requests = RateLimitRequests(
-                    account = rateLimitAccountRequest,
-                    product = rateLimitProductRequest,
+                requests = mapOf(
+                    RateLimitType.ACCOUNT to rateLimitAccountRequest,
+                    RateLimitType.PRODUCT to rateLimitProductRequest,
                 ),
             )
             rateLimitValidator.validate(rateLimitContext)
         }.subscribeOn(Schedulers.boundedElastic())
             .flatMap { rateLimitContext ->
                 val h = exchange.response.headers
-                val rateLimitAccountResponse = rateLimitContext.responses.account
-                val rateLimitProductResponse = rateLimitContext.responses.product
+                val rateLimitAccountResponse = rateLimitContext.responses[RateLimitType.ACCOUNT]
+                val rateLimitProductResponse = rateLimitContext.responses[RateLimitType.PRODUCT]
 
                 h.add("X-RateLimit-Account-Key", rateLimiterAccountKey)
                 h.add("X-RateLimit-Account-Limit", props.account.limit.toString())
@@ -77,7 +77,9 @@ class ReactiveRateLimitingFilter(
                     h.add("X-RateLimit-Product-Reset", rateLimitProductResponse.retryAfterMs.toString())
                 }
 
-                if (!rateLimitContext.responses.isAllowed()) {
+                val isAllowed = rateLimitContext.responses.map { it.value.allowed }.all { it }
+
+                if (!isAllowed) {
                     exchange.response.statusCode = HttpStatus.TOO_MANY_REQUESTS
                     return@flatMap exchange.response.setComplete()
                 }
@@ -94,7 +96,6 @@ class ReactiveRateLimitingFilter(
     }
 
     private fun buildKey(name: String, type: String, req: ServerHttpRequest): String {
-        val method = req.method
         return "rl:$type:$name"
     }
 }

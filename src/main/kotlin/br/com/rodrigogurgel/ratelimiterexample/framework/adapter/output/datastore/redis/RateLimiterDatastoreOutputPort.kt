@@ -1,7 +1,7 @@
 package br.com.rodrigogurgel.ratelimiterexample.framework.adapter.output.datastore.redis
 
 import br.com.rodrigogurgel.ratelimiterexample.application.output.metrics.RateLimitMetricsOutputPort
-import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.RedisDatastoreOutputPort
+import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.RateLimitDatastoreOutputPort
 import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.request.RateLimitRequest
 import br.com.rodrigogurgel.ratelimiterexample.application.output.ratelimit.response.RateLimitResponse
 import br.com.rodrigogurgel.ratelimiterexample.common.logger.extensions.compensationFailure
@@ -18,7 +18,7 @@ class RateLimiterDatastoreOutputPort(
     private val redisTemplate: RedisTemplate<String, String>,
     private val rateLimiterScript: DefaultRedisScript<List<Long>>,
     private val rateLimitMetricsOutputPort: RateLimitMetricsOutputPort
-) : RedisDatastoreOutputPort {
+) : RateLimitDatastoreOutputPort {
 
     companion object {
         private val logger = LoggerFactory.getLogger(RateLimiterDatastoreOutputPort::class.java)

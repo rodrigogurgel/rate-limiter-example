@@ -2,12 +2,15 @@
 <configuration scan="true">
 
     <!-- ===== Propriedades comuns ===== -->
-    <springProperty scope="context" name="APP_NAME"    source="spring.application.name"/>
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name"/>
     <springProperty scope="context" name="ENVIRONMENT" source="spring.profiles.active"/>
 
-    <property name="HOST"      value="${HOSTNAME:-local}"/>
-    <property name="LOG_PATH"  value="${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}}"/>
-    <property name="LOG_FILE"  value="${LOG_FILE:-${LOG_PATH}/spring.log}"/>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <property name="HOST" value="${HOSTNAME:-local}"/>
+    <property name="LOG_PATH" value="${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}}"/>
+    <property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH}/spring.log}"/>
 
     <!-- ===== Console JSON (STASH) ===== -->
     <appender name="STASH" class="ch.qos.logback.core.ConsoleAppender">
@@ -20,7 +23,8 @@
                 "hostname": "${HOST}",
                 "app_name": "${APP_NAME}",
                 "environment": "${ENVIRONMENT:-local}"
-                }</customFields>
+                }
+            </customFields>
 
             <fieldNames>
                 <timestamp>timestamp</timestamp>
@@ -54,7 +58,8 @@
                 "hostname": "${HOST}",
                 "app_name": "${APP_NAME}",
                 "environment": "${ENVIRONMENT:-local}"
-                }</customFields>
+                }
+            </customFields>
 
             <fieldNames>
                 <timestamp>timestamp</timestamp>
@@ -113,7 +118,8 @@
                 "hostname": "${HOST}",
                 "app_name": "${APP_NAME}",
                 "environment": "${ENVIRONMENT:-local}"
-                }</customFields>
+                }
+            </customFields>
 
             <fieldNames>
                 <timestamp>timestamp</timestamp>
@@ -164,15 +170,19 @@
     <!-- ===== Perfis ===== -->
 
     <springProfile name="local | default">
+        <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="${LoggingStyle:-CONSOLE}"/>
+            <appender-ref ref="ASYNC_SPLUNK"/>
+        </appender>
+
         <root level="${logging.level.root:-INFO}">
-            <appender-ref ref="ASYNC_STASH"/>
-            <!-- Habilite se quiser já enviar para o Splunk no local -->
-            <!-- <appender-ref ref="ASYNC_SPLUNK"/> -->
+            <appender-ref ref="${LoggingStyle:-CONSOLE}"/>
+            <appender-ref ref="ASYNC_SPLUNK"/>
         </root>
 
-        <logger name="br.com.rodrigogurgel" level="${logging.level.br.com.rodrigogurgel:-INFO}" additivity="false">
-            <appender-ref ref="ASYNC_STASH"/>
-            <!-- <appender-ref ref="ASYNC_SPLUNK"/> -->
+        <logger name="br.com.rodrigogurgel" additivity="false">
+            <appender-ref ref="${LoggingStyle:-CONSOLE}"/>
+            <appender-ref ref="ASYNC_SPLUNK"/>
         </logger>
     </springProfile>
 
